@@ -330,7 +330,13 @@
 
     <script>
         // Connect to Socket.IO server
-        const socket = io();
+        const socket = io({
+            transports: ['websocket', 'polling'],
+            upgrade: true,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5
+        });
 
         // DOM elements
         const localVideo = document.getElementById('localVideo');
@@ -504,11 +510,14 @@
         function sendMessage(message) {
             if (!message || !message.trim()) return;
             
+            console.log('📤 Sending message:', message);
+            
             // Add message to chat
             addMessage('user', message);
             
             // Send to server
             socket.emit('user_message', { message });
+            console.log('✅ Message emitted to server');
         }
 
         // Add message to chat
@@ -610,10 +619,23 @@
 
         // Socket.IO event listeners
         socket.on('connect', () => {
-            console.log('Connected to server');
+            console.log('✅ Connected to server');
+            console.log('Socket ID:', socket.id);
+            console.log('Transport:', socket.io.engine.transport.name);
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('❌ Connection error:', error);
+            statusDiv.textContent = 'Connection Error';
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.log('❌ Disconnected:', reason);
+            statusDiv.textContent = 'Disconnected';
         });
 
         socket.on('ai_response', (data) => {
+            console.log('✅ Received AI response:', data.text);
             // Add AI response to chat
             addMessage('ai', data.text);
             

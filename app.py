@@ -53,11 +53,12 @@ def index():
 
 @socketio.on('connect')
 def handle_connect():
-    print('Client connected')
+    print(f'✅ Client connected: {request.sid}')
+    print(f'   Remote address: {request.remote_addr}')
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    print('Client disconnected')
+    print(f'❌ Client disconnected: {request.sid}')
 
 @socketio.on('video_frame')
 def handle_video_frame(frame_data):
@@ -74,9 +75,12 @@ def handle_video_frame(frame_data):
 def handle_user_message(data):
     global latest_frame
     try:
+        print(f'📩 Received message from {request.sid}: {data}')
         user_message = data.get('message')
         if not user_message:
+            print('⚠️ Empty message received')
             return
+        print(f'💬 Processing message: "{user_message}"')
 
         # Get AI response
         if model and vision_model:
@@ -159,4 +163,5 @@ Analyze the image and provide a helpful, concise response (2-3 sentences). Descr
 if __name__ == '__main__':
     print("Starting AI Video Call Assistant...")
     print("Server running at http://localhost:5000")
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+    port = int(os.environ.get("PORT", 5000))
+    socketio.run(app, debug=True, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
