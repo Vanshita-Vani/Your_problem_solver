@@ -1,11 +1,8 @@
 flask
 flask-socketio
-opencv-python
+opencv-python-headless
 numpy
 python-dotenv
-python-socketio
-python-engineio
-eventlet
 Pillow
 gtts
 google-generativeai

@@ -18,10 +18,12 @@ app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(
     app, 
     cors_allowed_origins="*",
-    async_mode='eventlet',
+    async_mode='threading',
     ping_timeout=60,
     ping_interval=25,
-    max_http_buffer_size=10000000  # 10MB for video frames
+    max_http_buffer_size=5000000,  # 5MB for video frames
+    logger=False,
+    engineio_logger=False
 )
 
 # Initialize Google Gemini client (FREE!)
@@ -162,6 +164,6 @@ Analyze the image and provide a helpful, concise response (2-3 sentences). Descr
 
 if __name__ == '__main__':
     print("Starting AI Video Call Assistant...")
-    print("Server running at http://localhost:5000")
     port = int(os.environ.get("PORT", 5000))
-    socketio.run(app, debug=True, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+    print(f"Server running at http://0.0.0.0:{port}")
+    socketio.run(app, debug=False, host='0.0.0.0', port=port)

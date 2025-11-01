@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Video Call Assistant</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎥</text></svg>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
         * {
@@ -329,13 +330,14 @@
     </div>
 
     <script>
-        // Connect to Socket.IO server
+        // Connect to Socket.IO server (polling only for Render compatibility)
         const socket = io({
-            transports: ['websocket', 'polling'],
-            upgrade: true,
+            transports: ['polling'],
+            upgrade: false,
             reconnection: true,
-            reconnectionDelay: 1000,
-            reconnectionAttempts: 5
+            reconnectionDelay: 2000,
+            reconnectionAttempts: 5,
+            timeout: 30000
         });
 
         // DOM elements
@@ -365,11 +367,13 @@
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const aiCtx = aiVideo.getContext('2d');
+        let lastFrameTime = 0;
+        const FRAME_INTERVAL = 2000; // Send frame every 2 seconds
         
-        // Set canvas dimensions
+        // Set canvas dimensions (reduced for better performance)
         function setupCanvas() {
-            const width = 640;
-            const height = 480;
+            const width = 320;  // Reduced from 640
+            const height = 240; // Reduced from 480
             
             canvas.width = width;
             canvas.height = height;
@@ -489,18 +493,25 @@
             socket.emit('call_ended');
         }
 
-        // Send video frame to server
+        // Send video frame to server (throttled)
         function sendVideoFrame() {
             if (!localStream) return;
             
-            // Draw video frame to canvas
-            ctx.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
+            const currentTime = Date.now();
             
-            // Get image data as base64
-            const imageData = canvas.toDataURL('image/jpeg', 0.8);
-            
-            // Send to server
-            socket.emit('video_frame', imageData);
+            // Only send frame every FRAME_INTERVAL milliseconds
+            if (currentTime - lastFrameTime >= FRAME_INTERVAL) {
+                // Draw video frame to canvas
+                ctx.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
+                
+                // Get image data as base64 with lower quality
+                const imageData = canvas.toDataURL('image/jpeg', 0.5);
+                
+                // Send to server
+                socket.emit('video_frame', imageData);
+                
+                lastFrameTime = currentTime;
+            }
             
             // Continue capturing frames
             requestAnimationFrame(sendVideoFrame);
