@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Call Assistant</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        /* Sidebar Navigation */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 60px;
+            height: 100vh;
+            background: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+            z-index: 1000;
+            transition: width 0.3s;
+        }
+        
+        .sidebar:hover {
+            width: 200px;
+        }
+        
+        .nav-item {
+            width: 100%;
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: #ecf0f1;
+            transition: background 0.3s;
+            white-space: nowrap;
+        }
+        
+        .nav-item:hover {
+            background: #34495e;
+        }
+        
+        .nav-item.active {
+            background: #3498db;
+        }
+        
+        .nav-icon {
+            font-size: 24px;
+            min-width: 24px;
+        }
+        
+        .nav-text {
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .sidebar:hover .nav-text {
+            opacity: 1;
+        }
+        
+        /* Main Video Container */
+        .main-container {
+            margin-left: 60px;
+            width: calc(100% - 60px);
+            height: 100vh;
+            position: relative;
+        }
+        
+        #localVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #000;
+        }
+        
+        /* AI Video - Small Corner */
+        .ai-video-corner {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 250px;
+            height: 180px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            border: 3px solid #3498db;
+            background: #000;
+        }
+        
+        #aiVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Bottom Controls Bar */
+        .bottom-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            z-index: 100;
+        }
+        
+        /* Start/End Call Buttons - Circles */
+        .call-button {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 0;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+        }
+        
+        .call-button:hover {
+            transform: scale(1.1);
+        }
+        
+        .btn-start {
+            background: #2ecc71;
+        }
+        
+        .btn-start:hover {
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.6);
+        }
+        
+        .btn-stop {
+            background: #e74c3c;
+        }
+        
+        .btn-stop:hover {
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.6);
+        }
+        
+        /* Mic Button - Small with Blue Background */
+        .mic-button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #3498db;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.5);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mic-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.7);
+        }
+        
+        .mic-button.active {
+            background: #27ae60;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 4px 15px rgba(39, 174, 96, 0.5); }
+            50% { box-shadow: 0 4px 30px rgba(39, 174, 96, 0.9); }
+        }
+        
+        /* Status Indicator */
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 100;
+        }
+        
+        .status-indicator.listening {
+            background: rgba(39, 174, 96, 0.8);
+        }
+        
+        /* Chat Panel (Hidden by default) */
+        .chat-panel {
+            position: fixed;
+            right: -400px;
+            top: 0;
+            width: 400px;
+            height: 100vh;
+            background: #2c3e50;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.3);
+            transition: right 0.3s;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-panel.open {
+            right: 0;
+        }
+        
+        .chat-header {
+            padding: 20px;
+            background: #34495e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 15px;
+            max-width: 80%;
+        }
+        
+        .user-message {
+            background: #3498db;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .ai-message {
+            background: #34495e;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="nav-item" id="nav-chatbot">
+            <span class="nav-icon">💬</span>
+            <span class="nav-text">Chatbot</span>
+        </div>
+    </div>
+
+    <!-- Main Video Container -->
+    <div class="main-container">
+        <video id="localVideo" autoplay muted></video>
+        
+        <!-- AI Video in Corner -->
+        <div class="ai-video-corner">
+            <canvas id="aiVideo"></canvas>
+        </div>
+        
+        <!-- Status Indicator -->
+        <div id="status" class="status-indicator">Ready</div>
+        
+        <!-- Bottom Controls: Green Circle | Blue Mic | Red Circle -->
+        <div class="bottom-controls">
+            <button id="startButton" class="call-button btn-start" title="Start Call"></button>
+            <button id="mic-button" class="mic-button" disabled title="Toggle Microphone">🎤</button>
+            <button id="stopButton" class="call-button btn-stop" disabled title="End Call"></button>
+        </div>
+    </div>
+
+    <!-- Chat Panel (Slides from Right) -->
+    <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">
+            <h3>Chat History</h3>
+            <button class="chat-close" id="closeChat">✕</button>
+        </div>
+        <div id="chat-messages" class="chat-messages">
+            <div class="message ai-message">Hello! I'm your AI assistant. How can I help you today?</div>
+        </div>
+    </div>
+
+    <script>
+        // Connect to Socket.IO server
+        const socket = io();
+
+        // DOM elements
+        const localVideo = document.getElementById('localVideo');
+        const aiVideo = document.getElementById('aiVideo');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const micButton = document.getElementById('mic-button');
+        const chatMessages = document.getElementById('chat-messages');
+        const statusDiv = document.getElementById('status');
+        const chatPanel = document.getElementById('chatPanel');
+        const navChatbot = document.getElementById('nav-chatbot');
+        const closeChat = document.getElementById('closeChat');
+        
+        // Speech recognition
+        let recognition = null;
+        let isMicActive = false;
+        let isListening = false;
+        
+        // Audio context and elements
+        let audioContext;
+        let audioQueue = [];
+        let isPlaying = false;
+
+        // Stream and canvas setup
+        let localStream;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const aiCtx = aiVideo.getContext('2d');
+        
+        // Set canvas dimensions
+        function setupCanvas() {
+            const width = 640;
+            const height = 480;
+            
+            canvas.width = width;
+            canvas.height = height;
+            aiVideo.width = width;
+            aiVideo.height = height;
+        }
+
+        // Initialize audio context
+        function initAudio() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        // Play audio from base64 data
+        async function playAudio(base64Data) {
+            if (!audioContext) initAudio();
+            
+            try {
+                // Add to queue
+                audioQueue.push(base64Data);
+                
+                // If already playing, let the current playback finish
+                if (isPlaying) return;
+                
+                // Process the queue
+                while (audioQueue.length > 0) {
+                    isPlaying = true;
+                    const audioData = audioQueue[0];
+                    
+                    // Decode base64 to ArrayBuffer
+                    const binaryString = atob(audioData);
+                    const len = binaryString.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    
+                    // Decode audio data
+                    const audioBuffer = await audioContext.decodeAudioData(bytes.buffer);
+                    
+                    // Create audio source and connect to destination
+                    const source = audioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(audioContext.destination);
+                    
+                    // Play the audio
+                    source.start();
+                    
+                    // Wait for the audio to finish playing
+                    await new Promise(resolve => {
+                        source.onended = resolve;
+                    });
+                    
+                    // Remove the played audio from the queue
+                    audioQueue.shift();
+                }
+                
+                isPlaying = false;
+            } catch (error) {
+                console.error('Error playing audio:', error);
+                isPlaying = false;
+            }
+        }
+
+        // Start video stream
+        async function startVideo() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+                
+                localVideo.srcObject = localStream;
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                micButton.disabled = false;
+                
+                // Initialize speech recognition
+                initSpeechRecognition();
+                
+                // Start sending video frames
+                sendVideoFrame();
+                
+                // Initialize audio
+                initAudio();
+                
+                // Update status
+                statusDiv.textContent = 'Connected';
+                
+                // Notify server that call has started
+                socket.emit('call_started');
+                
+            } catch (error) {
+                console.error('Error accessing media devices:', error);
+                alert('Could not access camera or microphone. Please check permissions.');
+            }
+        }
+
+        // Stop video stream
+        function stopVideo() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localVideo.srcObject = null;
+            }
+            
+            // Stop mic if active
+            if (isMicActive && recognition) {
+                recognition.stop();
+                isMicActive = false;
+            }
+            
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            micButton.disabled = true;
+            statusDiv.textContent = 'Disconnected';
+            
+            // Notify server that call has ended
+            socket.emit('call_ended');
+        }
+
+        // Send video frame to server
+        function sendVideoFrame() {
+            if (!localStream) return;
+            
+            // Draw video frame to canvas
+            ctx.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
+            
+            // Get image data as base64
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Send to server
+            socket.emit('video_frame', imageData);
+            
+            // Continue capturing frames
+            requestAnimationFrame(sendVideoFrame);
+        }
+
+        // Send message to server
+        function sendMessage(message) {
+            if (!message || !message.trim()) return;
+            
+            // Add message to chat
+            addMessage('user', message);
+            
+            // Send to server
+            socket.emit('user_message', { message });
+        }
+
+        // Add message to chat
+        function addMessage(sender, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = text;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Initialize speech recognition (Continuous mode)
+        function initSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;  // Continuous listening
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onstart = () => {
+                    isListening = true;
+                    statusDiv.textContent = '🎤 Listening...';
+                    statusDiv.classList.add('listening');
+                };
+                
+                recognition.onresult = (event) => {
+                    const lastResult = event.results[event.results.length - 1];
+                    if (lastResult.isFinal) {
+                        const transcript = lastResult[0].transcript.trim();
+                        console.log('Heard:', transcript);
+                        
+                        // Send the message
+                        sendMessage(transcript);
+                    }
+                };
+                
+                recognition.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    if (event.error !== 'no-speech') {
+                        statusDiv.textContent = '❌ Error: ' + event.error;
+                        statusDiv.classList.remove('listening');
+                    }
+                };
+                
+                recognition.onend = () => {
+                    isListening = false;
+                    // Auto-restart if mic is still active
+                    if (isMicActive) {
+                        setTimeout(() => {
+                            if (isMicActive) {
+                                recognition.start();
+                            }
+                        }, 100);
+                    } else {
+                        statusDiv.textContent = 'Connected';
+                        statusDiv.classList.remove('listening');
+                    }
+                };
+            } else {
+                console.warn('Speech recognition not supported');
+                micButton.style.display = 'none';
+            }
+        }
+        
+        // Toggle microphone
+        function toggleMic() {
+            if (!recognition) return;
+            
+            isMicActive = !isMicActive;
+            
+            if (isMicActive) {
+                micButton.classList.add('active');
+                recognition.start();
+            } else {
+                micButton.classList.remove('active');
+                recognition.stop();
+                statusDiv.textContent = 'Connected';
+                statusDiv.classList.remove('listening');
+            }
+        }
+        
+        // Event listeners
+        startButton.addEventListener('click', startVideo);
+        stopButton.addEventListener('click', stopVideo);
+        micButton.addEventListener('click', toggleMic);
+        
+        // Chat panel toggle
+        navChatbot.addEventListener('click', () => {
+            chatPanel.classList.add('open');
+            navChatbot.classList.add('active');
+        });
+        
+        closeChat.addEventListener('click', () => {
+            chatPanel.classList.remove('open');
+            navChatbot.classList.remove('active');
+        });
+
+        // Socket.IO event listeners
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('ai_response', (data) => {
+            // Add AI response to chat
+            addMessage('ai', data.text);
+            
+            // Play audio response if available
+            if (data.audio) {
+                playAudio(data.audio);
+            }
+        });
+
+        socket.on('video_processed', (data) => {
+            // Process AI video frame (for now just display the same frame)
+            const img = new Image();
+            img.onload = () => {
+                aiCtx.drawImage(img, 0, 0, aiVideo.width, aiVideo.height);
+            };
+            img.src = data.frame;
+        });
+
+        socket.on('error', (data) => {
+            console.error('Server error:', data.message);
+            addMessage('ai', `Error: ${data.message}`);
+        });
+
+        // Initialize the app
+        setupCanvas();
+    </script>
+</body>
+</html>

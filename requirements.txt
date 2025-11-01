@@ -1,0 +1,11 @@
+flask
+flask-socketio
+opencv-python
+numpy
+python-dotenv
+python-socketio
+python-engineio
+eventlet
+Pillow
+gtts
+google-generativeai
