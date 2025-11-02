@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory AI Assistant - Emotionally Intelligent Companion</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💝</text></svg>">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Welcome Screen -->
+    <div class="welcome-screen" id="welcomeScreen">
+        <div class="welcome-content">
+            <h1>💝 Memory AI Assistant</h1>
+            <p>Create an emotionally intelligent companion that feels real. Upload an image and voice sample to personalize your AI, or skip to use the default avatar.</p>
+            
+            <div class="upload-section">
+                <div class="upload-box" id="avatarUploadBox">
+                    <div class="upload-icon">🖼️</div>
+                    <div class="upload-text">Avatar Image</div>
+                    <div class="upload-hint">Upload or capture an image</div>
+                    <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                    <div class="upload-buttons">
+                        <button class="upload-btn" onclick="document.getElementById('avatarInput').click()">📁 Upload</button>
+                        <button class="upload-btn" id="captureImageBtn">📷 Capture</button>
+                    </div>
+                </div>
+                
+                <div class="upload-box" id="voiceUploadBox">
+                    <div class="upload-icon">🎤</div>
+                    <div class="upload-text">Voice Sample</div>
+                    <div class="upload-hint">Upload or record audio</div>
+                    <input type="file" id="voiceInput" accept="audio/*" style="display: none;">
+                    <div class="upload-buttons">
+                        <button class="upload-btn" onclick="document.getElementById('voiceInput').click()">📁 Upload</button>
+                        <button class="upload-btn" id="recordAudioBtn">🎙️ Record</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Camera Modal -->
+            <div id="cameraModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <h3>📷 Capture Photo</h3>
+                    <video id="cameraPreview" autoplay></video>
+                    <canvas id="captureCanvas" style="display: none;"></canvas>
+                    <div class="modal-buttons">
+                        <button class="modal-btn" id="takePictureBtn">📸 Take Picture</button>
+                        <button class="modal-btn cancel" id="closeCameraBtn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Audio Recording Modal -->
+            <div id="audioModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <h3>🎙️ Record Audio</h3>
+                    <div class="recording-status" id="recordingStatus">
+                        <div class="recording-indicator"></div>
+                        <span>Ready to record</span>
+                    </div>
+                    <div class="recording-timer" id="recordingTimer">00:00</div>
+                    <div class="modal-buttons">
+                        <button class="modal-btn" id="startRecordingBtn">⏺️ Start Recording</button>
+                        <button class="modal-btn" id="stopRecordingBtn" style="display: none;">⏹️ Stop Recording</button>
+                        <button class="modal-btn cancel" id="closeAudioBtn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn-start-session" id="btnStartSession">Start Session</button>
+            <a href="#" class="skip-link" id="skipLink">Skip and use default avatar</a>
+        </div>
+    </div>
+
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="nav-item" id="nav-chatbot">
+            <span class="nav-icon">💬</span>
+            <span class="nav-text">Chat History</span>
+        </div>
+    </div>
+
+    <!-- Main Video Container -->
+    <div class="main-container">
+        <video id="localVideo" autoplay muted></video>
+        
+        <!-- AI Video in Corner -->
+        <div class="ai-video-corner">
+            <canvas id="aiVideo"></canvas>
+        </div>
+        
+        <!-- Status Indicator -->
+        <div id="status" class="status-indicator">
+            <div class="status-dot"></div>
+            <span>Ready</span>
+        </div>
+        
+        <!-- Bottom Controls -->
+        <div class="bottom-controls">
+            <button id="startButton" class="call-button btn-start" title="Start Call">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+                </svg>
+            </button>
+            <button id="mic-button" class="mic-button" disabled title="Toggle Microphone">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+            </button>
+            <button id="stopButton" class="call-button btn-stop" disabled title="End Call">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.68-1.36-2.66-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Chat Panel -->
+    <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">
+            <h3>💬 Conversation</h3>
+            <button class="chat-close" id="closeChat">✕</button>
+        </div>
+        <div id="chat-messages" class="chat-messages">
+            <div class="message ai-message">Hello! I'm here for you. How are you feeling today? 💝</div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

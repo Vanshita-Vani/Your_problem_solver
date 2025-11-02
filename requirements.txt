@@ -8,3 +8,5 @@ gtts
 google-generativeai
 gunicorn
 eventlet
+requests
+werkzeug
